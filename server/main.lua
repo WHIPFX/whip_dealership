@@ -89,7 +89,7 @@ local function takePayment(source, method, accountId, price, label)
     })
 end
 
-local function onBuy(source, player, model, payment, accountId)
+local function onBuy(source, _, model, payment, accountId)
     -- A REFUSAL IS `return false, 'why'`. whip shows the player the why and records the refusal in
     -- the event log, the same as its own checks. The result event only tells the open menu, so it
     -- can stop showing "buying" and say what happened in its own words.
@@ -266,7 +266,7 @@ end
 --- Someone is playing: Simon may be made now (once; spawnSimon says if he is there already).
 local function anyonePlaying()
     for _, src in ipairs(GetPlayers()) do
-        if core:GetCharId(tonumber(src)) then return true end   -- a character loaded (nil at character select)
+        if core:GetCharId(tonumber(src) --[[@as number]]) then return true end   -- a character loaded (nil at character select)
     end
     return false
 end
