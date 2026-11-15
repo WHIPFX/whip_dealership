@@ -22,11 +22,11 @@ Config.Salesman = {
 Config.Delivery = vector4(800.82, -817.61, 26.18, 91.89)
 
 -- The lot on everyone's map, at Simon. `show = false` leaves it off. sprite and color are GTA's blip icon and colour
--- numbers (326 is the car showroom).
+-- numbers (831 is GTA's car showroom, 3 is blue).
 Config.Blip = {
     show   = true,
     label  = 'Car Dealership',
-    sprite = 326,
+    sprite = 831,
     color  = 3,
     scale  = 0.8,
 }
