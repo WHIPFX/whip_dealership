@@ -19,3 +19,8 @@ is waiting at the lot, yours to keep.
   stop fitting, wherever it is, and **Active keys** shows how many keys fit the car now. It is built on a prompt menu
   filled when it opens (see `client/main.lua`) and whip_core's `GiveVehicleKey`, `ChangeVehicleLocks` and
   `CountVehicleKeys`.
+
+## License
+
+whip_dealership is licensed under the GNU LGPL 3.0; see `COPYING.LESSER`, and `COPYING` for the GPL 3.0 it builds on.
+`NOTICE.md` says what the licence doesn't cover; `whip_core`'s `NOTICE.md` is the full list.
