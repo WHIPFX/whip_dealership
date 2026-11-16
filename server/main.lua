@@ -230,8 +230,8 @@ end
 --
 -- Simon is one of whip's NPCs (SpawnNpc): made once by the server, the same Simon in every game, kept standing at his
 -- spot doing his idle, and gone when this resource stops. Invincible, frozen and deaf to gunfire: a salesman who
--- leaves mid-sentence is not a salesman. He is made once a character has loaded, as whip asks (on Enhanced an NPC
--- made on an empty server can lose its network id), and made again if whip_core restarts (its NPCs go with it).
+-- leaves mid-sentence is not a salesman. He is made once a character has loaded, as whip makes its own standing NPCs,
+-- and made again if whip_core restarts (its NPCs go with it).
 
 local IDLE = { dict = 'anim@amb@business@bgen@bgen_no_work@', clip = 'idle_a' }
 local simonNpc = nil
