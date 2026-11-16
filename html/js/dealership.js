@@ -338,7 +338,7 @@ function refreshTiles() {
     const cashShort = state.cash < price;
     cash.disabled = state.paying || cashShort;
     cash.classList.toggle('short', cashShort);
-    $('pay-cash-note').textContent = cashShort ? `${money(price - state.cash)} short` : 'From your pockets';
+    $('pay-cash-note').textContent = cashShort ? `${money(price - state.cash)} short` : 'From your pockets or wallet';
 
     const bank = $('pay-bank');
     const accts = state.accounts;
