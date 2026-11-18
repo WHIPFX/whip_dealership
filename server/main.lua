@@ -46,6 +46,14 @@ local function buildCatalogue()
     return out
 end
 
+--- The cash a payment can take: loose notes and what their wallets hold (whip_core's GetSpendableCash, as the charge
+--- counts it), or the loose notes alone on a whip_core without it.
+local function spendableCash(source)
+    local ok, n = pcall(function() return core:GetSpendableCash(source) end)
+    if ok and tonumber(n) then return tonumber(n) end
+    return tonumber(core:GetPlayerCash(source)) or 0
+end
+
 local function onCatalogue(source, player)
     local vehicles = buildCatalogue()
 
@@ -67,7 +75,8 @@ local function onCatalogue(source, player)
     return {
         vehicles = vehicles,
         accounts = accounts,
-        cash     = core:GetPlayerCash(source) or 0,
+        -- Loose notes and wallet cash: what the Cash button can really pay with
+        cash     = spendableCash(source),
         -- (Each vehicle carries its own `image` URL now, from whip_core's catalog — the pictures
         -- live there, and this resource no longer spells out where.)
     }
