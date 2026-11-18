@@ -64,10 +64,12 @@ local function onCatalogue(source, player)
         end
     end
 
+    local td = Config.TestDrive
     return {
-        vehicles = vehicles,
-        accounts = accounts,
-        cash     = core:GetPlayerCash(source) or 0,
+        vehicles  = vehicles,
+        accounts  = accounts,
+        cash      = core:GetPlayerCash(source) or 0,
+        testDrive = (td and td.enabled) and math.max(15, math.floor(tonumber(td.duration) or 120)) or 0,
         -- (Each vehicle carries its own `image` URL now, from whip_core's catalog — the pictures
         -- live there, and this resource no longer spells out where.)
     }
@@ -172,6 +174,140 @@ local function onBuy(source, _, model, payment, accountId)
     print(('[whip_dealership] %s bought %s (%s) for $%d via %s')
         :format(GetPlayerName(source), label, tostring(plate), price, payment))
 end
+
+-- ============================================
+-- Test Drive
+-- ============================================
+--
+-- Spawns a temporary vehicle via whip_core's SpawnTempVehicle (with despawnAfter and keyInIgnition),
+-- seats the player in it, and brings them back to Simon when the timer expires or they end early.
+
+local testDrives     = {}   -- [source] = { vehicleId, model, label, returnCoords }
+local testDriveByVeh = {}   -- [vehicleId] = source
+
+--- End an active test drive for `source`. Safe to call from any exit path (timer, manual, death, logout).
+---@param source number
+---@param reason string  'expired' | 'manual' | 'died' | 'logout' | 'ended'
+---@param skipDespawn boolean|nil  true when whip_core:vehicle:released already removed the car
+local function finishTestDrive(source, reason, skipDespawn)
+    local drive = testDrives[source]
+    if not drive then return end
+    testDrives[source] = nil
+    testDriveByVeh[drive.vehicleId] = nil
+
+    if not skipDespawn then
+        pcall(function() core:DespawnVehicle(drive.vehicleId) end)
+    end
+
+    if reason ~= 'logout' and GetPlayerName(source) then
+        TriggerClientEvent('whip_dealership:client:testDriveEnded', source, reason, drive.returnCoords)
+    end
+end
+
+local function onTestDrive(source, _, model)
+    local function fail(msg)
+        TriggerClientEvent('whip_dealership:client:testDriveResult', source, false, msg, false)
+        return false, msg
+    end
+
+    local td = Config.TestDrive
+    if not td or not td.enabled then
+        return fail('Test drives are not available right now')
+    end
+    if testDrives[source] then
+        return fail('You already have an active test drive')
+    end
+
+    local catalog = core:GetVehicleCatalog() or {}
+    local row = catalog[model]
+    if not row or not row.hasImage or not row.class or not Config.SellableClasses[row.class] then
+        return fail('That car is not available for a test drive')
+    end
+    if row.inGame == false then
+        return fail('That car is not in this game')
+    end
+
+    local canOut, outWhy = core:CanBringOutVehicleFor(source)
+    if not canOut then
+        return fail(outWhy or 'The car cannot be brought out for you now')
+    end
+
+    local ped = GetPlayerPed(source)
+    local fallback = td.returnTo or Config.Salesman.coords
+    local returnCoords
+    if ped and ped ~= 0 then
+        local c = GetEntityCoords(ped)
+        returnCoords = { x = c.x, y = c.y, z = c.z, heading = GetEntityHeading(ped) }
+    else
+        returnCoords = { x = fallback.x, y = fallback.y, z = fallback.z, heading = fallback.w or 0.0 }
+    end
+
+    local duration = math.max(15, math.floor(tonumber(td.duration) or 120))
+    local spawnAt = td.coords or Config.Delivery
+    local vehicleId, spawnErr = core:SpawnTempVehicle(model, spawnAt, {
+        forSource     = source,
+        giveKey       = false,
+        keyInIgnition = true,
+        locked        = false,
+        secure        = true,
+        despawnAfter  = duration,
+    })
+
+    if not vehicleId then
+        return fail(('Could not start test drive (%s)'):format(tostring(spawnErr or 'the spot is blocked')))
+    end
+
+    -- Full tank for the test drive (with whip_fuel; safe no-op otherwise).
+    pcall(function() core:SetVehicleStat(vehicleId, 'fuel', 100.0, 'dealership:testdrive') end)
+
+    local veh = core:GetVehicle(vehicleId)
+    local netId = veh and veh.netId or nil
+    local label = row.displayName or model:upper()
+
+    testDrives[source] = {
+        vehicleId    = vehicleId,
+        model        = model,
+        label        = label,
+        returnCoords = returnCoords,
+    }
+    testDriveByVeh[vehicleId] = source
+
+    TriggerClientEvent('whip_dealership:client:testDriveStarted', source, {
+        netId    = netId,
+        model    = model,
+        name     = label,
+        duration = duration,
+    })
+
+    print(('[whip_dealership] %s started a %ds test drive of %s'):format(GetPlayerName(source), duration, label))
+end
+
+local function onEndTestDrive(source)
+    if not testDrives[source] then return end
+    finishTestDrive(source, 'manual', false)
+end
+
+AddEventHandler('whip_core:vehicle:released', function(data)
+    if type(data) ~= 'table' or not data.vehicleId then return end
+    local src = testDriveByVeh[data.vehicleId]
+    if not src then return end
+    finishTestDrive(src, data.reason == 'expired' and 'expired' or 'ended', true)
+end)
+
+AddEventHandler('whip_core:player:died', function(data)
+    local src = type(data) == 'table' and data.source or nil
+    if src and testDrives[src] then finishTestDrive(src, 'died', false) end
+end)
+
+AddEventHandler('whip_core:player:logout', function(data)
+    local src = type(data) == 'table' and data.source or nil
+    if src and testDrives[src] then finishTestDrive(src, 'logout', false) end
+end)
+
+AddEventHandler('playerDropped', function()
+    local src = source
+    if testDrives[src] then finishTestDrive(src, 'logout', false) end
+end)
 
 -- ============================================
 -- Manage Keys
@@ -325,6 +461,23 @@ local function RegisterWithWhip()
             {'accountId', 'id',   0},   -- 0 = none (cash); the bank's own permission check decides the rest
         },
     }, onBuy)
+
+    -- Test drive: starting requires standing at Simon; ending works from anywhere.
+    core:SecureEvent('whip_dealership:server:testDrive', {
+        rateLimit = 3000, burst = 2,
+        near   = { at = simonAt, range = Config.Salesman.useRange, message = false },
+        onReject = function(src, why)
+            TriggerClientEvent('whip_dealership:client:testDriveResult', src, false,
+                why == 'Rate limited' and 'One moment — try that again' or tostring(why), true)
+        end,
+        params = {
+            {'model', 'key', 60},
+        },
+    }, onTestDrive)
+
+    core:SecureEvent('whip_dealership:server:endTestDrive', {
+        rateLimit = 1000, burst = 2,
+    }, onEndTestDrive)
 
     -- Manage Keys. At Simon, like the rest; message = false because the prompt says the reason itself.
     local atSimon = { at = simonAt, range = Config.Salesman.useRange, message = false }

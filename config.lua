@@ -21,6 +21,15 @@ Config.Salesman = {
 -- Where a bought vehicle appears.
 Config.Delivery = vector4(800.82, -817.61, 26.18, 91.89)
 
+-- ---- Test drive ----
+-- Temporary vehicle spawned via whip_core's SpawnTempVehicle (despawnAfter removes it automatically).
+Config.TestDrive = {
+    enabled  = true,
+    duration = 120,   -- seconds (2 minutes)
+    coords   = Config.Delivery,
+    returnTo = vector4(801.48, -807.88, 26.18, 0.0),   -- fallback spot in front of Simon
+}
+
 -- The lot on everyone's map, at Simon. `show = false` leaves it off. sprite and color are GTA's blip icon and colour
 -- numbers (831 is GTA's car showroom, 3 is blue).
 Config.Blip = {

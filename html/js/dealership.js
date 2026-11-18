@@ -59,11 +59,16 @@ const state = {
     searchLit: false,  // on a pad: the D-pad is on the search bar (padPress)
     best: {},          // the best of each stat on the lot, for the bars
     paying: false,     // one order at a time
+    testDrive: 0,      // seconds (0 = disabled)
+    testing: false,    // waiting for the server to start a test drive
 };
 
 let rows = [];          // the list as drawn: classes (numbers) or cars
 let cursor = -1;        // keyboard row in the list
 let payTimer = null;
+let testDriveLatch = null;
+let tdInterval = null;
+let tdEndsAt = 0;
 
 const $ = (id) => document.getElementById(id);
 
@@ -117,7 +122,10 @@ let padOn = false;   // a controller is driving the page (client/main.lua says s
 
 function renderHint(view) {
     const keys = padOn ? PAD_KEYS : GLYPH_KEYS;
-    const set = padOn && state.searchLit ? keys.bar : view === 'types' ? keys.types : keys.list;
+    let set = padOn && state.searchLit ? keys.bar : view === 'types' ? keys.types : keys.list;
+    if (padOn && !state.searchLit && view !== 'types' && state.testDrive > 0) {
+        set = [set[0], set[1], padImg('rb') + ' test drive', ...set.slice(2)];
+    }
     $('hint').innerHTML = set.map((h) => `<span>${h}</span>`).join('');
 }
 
@@ -225,7 +233,21 @@ function renderStage() {
         .filter(Boolean).join(' · ');
     $('car-price').textContent = money(v.price);
     $('buy').textContent = `Buy — ${money(v.price)}`;
-    $('buy').disabled = state.paying;
+    $('buy').disabled = state.paying || state.testing;
+
+    const tdBtn = $('testdrive');
+    const tdSec = state.testDrive;
+    tdBtn.hidden = !tdSec;
+    if (tdSec > 0) {
+        const mins = tdSec >= 60 && tdSec % 60 === 0 ? `${tdSec / 60} min` : `${tdSec} s`;
+        const label = state.testing ? 'Starting…' : `Test Drive (${mins})`;
+        if (padOn && !state.testing) {
+            tdBtn.innerHTML = `${padImg('rb')}<span>${label}</span>`;
+        } else {
+            tdBtn.textContent = label;
+        }
+        tdBtn.disabled = state.paying || state.testing;
+    }
 
     // ---- the bars, against the best on the lot ----
     const dl = $('stats');
@@ -425,7 +447,10 @@ function open(data) {
     state.typeCursor = -1;
     state.searchLit = false;
     state.paying = false;
+    state.testDrive = Math.max(0, Number(data.testDrive) || 0);
+    state.testing = false;
     clearTimeout(payTimer);
+    clearTimeout(testDriveLatch);
 
     // The best of each stat on the lot, so a bar reads "against everything for sale here".
     state.best = {};
@@ -455,8 +480,66 @@ function close(tellLua) {
     root.setAttribute('aria-hidden', 'true');
     if (document.activeElement) document.activeElement.blur();
     clearTimeout(payTimer);
+    clearTimeout(testDriveLatch);
     state.paying = false;
+    state.testing = false;
     if (tellLua !== false) nui('dealershipClose', {});
+}
+
+/* ---- test drive ----------------------------------------------------------- */
+
+function formatCountdown(sec) {
+    const s = Math.max(0, Math.ceil(sec));
+    const m = Math.floor(s / 60);
+    const r = s % 60;
+    return `${m}:${r < 10 ? '0' : ''}${r}`;
+}
+
+function startTestDrive() {
+    const v = state.picked;
+    if (!v || state.paying || state.testing || !state.testDrive) return;
+    state.testing = true;
+    renderStage();
+    nui('dealershipTestDrive', { model: v.model });
+    clearTimeout(testDriveLatch);
+    testDriveLatch = setTimeout(() => {
+        state.testing = false;
+        renderStage();
+    }, 10000);
+}
+
+function setTestDriveSub(onPad) {
+    const sub = document.querySelector('#td-hud .td-sub');
+    if (!sub) return;
+    sub.innerHTML = onPad
+        ? `Test drive · hold ${padImg('b')} to end`
+        : 'Test drive · <kbd>Backspace</kbd> to end';
+}
+
+function showTestDriveHud(name, duration, onPad) {
+    clearInterval(tdInterval);
+    const hud = $('td-hud');
+    $('td-name').textContent = name || 'Vehicle';
+    setTestDriveSub(!!onPad);
+    tdEndsAt = Date.now() + (Number(duration) || 120) * 1000;
+
+    function tick() {
+        const left = Math.max(0, (tdEndsAt - Date.now()) / 1000);
+        $('td-time').textContent = formatCountdown(left);
+        hud.classList.toggle('low', left <= 15);
+    }
+
+    tick();
+    hud.hidden = false;
+    tdInterval = setInterval(tick, 250);
+}
+
+function hideTestDriveHud() {
+    clearInterval(tdInterval);
+    tdInterval = null;
+    const hud = $('td-hud');
+    hud.hidden = true;
+    hud.classList.remove('low');
 }
 
 /* ---- input ---------------------------------------------------------------- */
@@ -542,6 +625,7 @@ document.querySelectorAll('.seg-btn').forEach((b) => b.addEventListener('click',
 $('back').addEventListener('click', back);
 $('close').addEventListener('click', () => close());
 $('buy').addEventListener('click', openCheckout);
+$('testdrive').addEventListener('click', startTestDrive);
 $('co-keep').addEventListener('click', closeCheckout);
 $('pay-cash').addEventListener('click', () => pay('cash', 0));
 $('pay-bank').addEventListener('click', () => {
@@ -615,6 +699,10 @@ function padPress(cmd) {
         render();
         return;
     }
+    if (cmd === 'rb') {
+        if (view !== 'types' && state.picked && state.testDrive > 0) startTestDrive();
+        return;
+    }
     if (cmd === 'a' && view !== 'types' && !state.picked) { key('ArrowDown'); return; }
     if (PAD_KEY[cmd]) key(PAD_KEY[cmd]);
 }
@@ -625,6 +713,7 @@ function setPad(on) {
     $('dealer').classList.toggle('pad', padOn);
     $('search').classList.toggle('pad-lit', padOn && state.searchLit);   // here too: this draws no list
     renderHint(state.query.trim() ? 'search' : state.view);
+    if (state.picked) renderStage();
 }
 
 /* ---- messages from Lua ---------------------------------------------------- */
@@ -636,6 +725,18 @@ window.addEventListener('message', (event) => {
     // A refused purchase: the reason stays on the card (whip's toast also shows it). A sale closes
     // the menu from Lua.
     else if (d.action === 'dealershipResult' && !d.ok) unlatch(d.message || 'That did not go through. Nothing was charged.');
+    else if (d.action === 'testDriveResult' && !d.ok) {
+        clearTimeout(testDriveLatch);
+        state.testing = false;
+        renderStage();
+    }
+    else if (d.action === 'testDriveStart') {
+        clearTimeout(testDriveLatch);
+        state.testing = false;
+        showTestDriveHud(d.name, d.duration, d.pad === true);
+    }
+    else if (d.action === 'testDrivePad') setTestDriveSub(d.pad === true);
+    else if (d.action === 'testDriveEnd') hideTestDriveHud();
     else if (d.action === 'pad') padPress(String(d.cmd || ''));
     else if (d.action === 'padDevice') setPad(d.pad === true);
     // What was typed on whip's keyboard: the search, and the first car it finds picked.
