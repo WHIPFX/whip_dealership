@@ -657,12 +657,53 @@ svg { display: block; }
     cursor: default;
 }
 
+.car-actions {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
 .buy {
     flex: 0 0 auto;
-    min-width: 220px;
+    min-width: 200px;
     padding: 12px 22px;
     font-size: 11.5px;
     font-variant-numeric: tabular-nums;
+}
+
+.testdrive {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 12px 18px;
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+    border: 1px solid var(--ui-border);
+    color: var(--ui-text);
+}
+.testdrive .pad-g {
+    display: inline-block;
+    height: 15px;
+    width: auto;
+}
+.td-sub .pad-g {
+    display: inline-block;
+    height: 13px;
+    width: auto;
+    vertical-align: -2px;
+}
+.testdrive[hidden] { display: none; }
+.testdrive:hover:not(:disabled),
+.testdrive:focus-visible {
+    border-color: var(--ui-border-hover);
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+}
+.testdrive:disabled {
+    opacity: 0.45;
+    cursor: default;
 }
 
 .btn {
@@ -997,3 +1038,84 @@ svg { display: block; }
     background: rgba(255, 255, 255, 0.06);
     box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.9), 0 0 0 4px rgba(255, 255, 255, 0.2);
 }
+
+/* ============================================
+   Test-drive countdown HUD pill
+   ============================================ */
+
+.td-hud {
+    position: fixed;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: rgba(10, 12, 18, 0.92);
+    border: 1px solid var(--ui-border-hover);
+    border-radius: var(--r-panel);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    pointer-events: none;
+    animation: tdIn 0.22s var(--ui-ease) both;
+}
+.td-hud[hidden] { display: none; }
+
+@keyframes tdIn {
+    from { opacity: 0; transform: translate(-50%, -8px); }
+    to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.td-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--ui-accent);
+    box-shadow: 0 0 10px rgba(96, 165, 250, 0.7);
+    flex: 0 0 auto;
+}
+.td-hud.low .td-dot {
+    background: var(--ui-error);
+    box-shadow: 0 0 10px rgba(248, 113, 113, 0.8);
+}
+
+.td-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.td-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.2;
+}
+.td-sub {
+    font-size: 11px;
+    color: var(--ui-text-label);
+    line-height: 1.2;
+}
+.td-sub kbd {
+    display: inline-block;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--ui-text);
+    font-family: var(--font);
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.td-time {
+    font-size: 18px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+    color: #fff;
+    padding-left: 10px;
+    border-left: 1px solid var(--ui-border);
+    min-width: 54px;
+    text-align: right;
+}
+.td-hud.low .td-time { color: var(--ui-error); }

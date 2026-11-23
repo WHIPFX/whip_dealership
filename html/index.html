@@ -86,7 +86,10 @@
                             <b>Delivered to the forecourt</b>
                             <span>The key goes straight into your pockets.</span>
                         </div>
-                        <button id="buy" class="btn-hot buy">Buy</button>
+                        <div class="car-actions">
+                            <button id="testdrive" class="btn btn-quiet testdrive" hidden>Test Drive</button>
+                            <button id="buy" class="btn-hot buy">Buy</button>
+                        </div>
                     </footer>
                 </div>
             </section>
@@ -162,6 +165,16 @@
         </div>
 
     </div>
+</div>
+
+<!-- Test-drive countdown pill: shown while driving, without taking NUI focus. -->
+<div id="td-hud" class="td-hud" hidden>
+    <span class="td-dot" aria-hidden="true"></span>
+    <div class="td-info">
+        <span id="td-name" class="td-name"></span>
+        <span class="td-sub">Test drive · <kbd>Backspace</kbd> to end</span>
+    </div>
+    <span id="td-time" class="td-time">2:00</span>
 </div>
 
 <script src="js/dealership.js"></script>
