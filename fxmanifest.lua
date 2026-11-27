@@ -4,7 +4,7 @@ game 'gta5'
 name 'whip_dealership'
 author 'Whippy'
 description 'Example whip satellite — a vehicle dealership'
-version '1.0.0'
+version '1.1.0'
 
 -- The reference resource for building on whip: everything it touches is a public whip_core export.
 
